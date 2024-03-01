@@ -1,0 +1,58 @@
+# Importar las bibliotecas necesarias
+# Comandos para instalar librerías
+# pip install google-cloud-language
+# pip install googletrans==3.1.0a0
+# pip install bs4
+# pip install pandas
+from google.cloud import language
+from bs4 import BeautifulSoup
+from googletrans import Translator
+import requests
+import pandas as pd
+
+# Inicializar traductor
+translator = Translator()
+
+# Inicializar cliente con la clave API (reemplazar ruta)
+client = language.LanguageServiceClient.from_service_account_json(
+    filename="./your_service_account_credentials.json" # Aquí debes indicar la ruta donde se encuentra el archivo JSON con las credenciales de tu cuenta de servicio en Google Cloud.
+)
+
+def obtener_texto_url(url):
+    req = requests.get(url)
+    soup = BeautifulSoup(req.content, 'html.parser')
+    textoscrapeado = str(soup.get_text()).strip()
+    return textoscrapeado
+
+def classify_text(text):
+    document = language.Document(  # Define document with translated text
+        content=str(text),
+        type_=language.Document.Type.PLAIN_TEXT,
+    )
+    response = client.classify_text(document=document)
+    return response
+
+def show_text_classification(text: str, response: language.ClassifyTextResponse):
+    columns = ["category", "confidence"]
+    data = ((category.name, category.confidence) for category in response.categories)
+    df = pd.DataFrame(columns=columns, data=data)
+
+    print(f"\nTexto analizado:\n{text}")
+    print(df.to_markdown(index=False, tablefmt="presto", floatfmt=".0%"))
+
+# Obtener una URL
+url = input("Introduce una URL para clasificar: ")
+
+# Obtener el texto de la URL
+texto = obtener_texto_url(url)
+
+translated_text = translator.translate(texto, dest='en')
+print(translated_text)
+
+# Clasificar el texto
+response = classify_text(texto)
+
+# Mostrar el resultado de la clasificación
+show_text_classification(texto, response)
+
+print("\nClasificación finalizada.")
